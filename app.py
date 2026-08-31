@@ -49,6 +49,39 @@ def get_urgency(days_remaining):
     return "Later"
 
 
+def find_excel_header_row(uploaded_file):
+    uploaded_file.seek(0)
+
+    preview = pd.read_excel(
+        uploaded_file,
+        header=None,
+        nrows=20,
+    )
+
+    all_aliases = {
+        alias
+        for aliases in COLUMN_ALIASES.values()
+        for alias in aliases
+    }
+
+    for row_index, row in preview.iterrows():
+        recognized_columns = 0
+
+        for cell_value in row:
+            if pd.isna(cell_value):
+                continue
+
+            column_name = normalize_column_name(cell_value)
+
+            if column_name in all_aliases:
+                recognized_columns += 1
+
+        if recognized_columns >= 3:
+            return row_index
+
+    return 0
+
+
 def load_uploaded_file(uploaded_file):
     file_type = uploaded_file.name.split(".")[-1].lower()
     uploaded_file.seek(0)
@@ -60,7 +93,14 @@ def load_uploaded_file(uploaded_file):
         return pd.read_json(uploaded_file)
 
     if file_type in ["xlsx", "xls"]:
-        return pd.read_excel(uploaded_file)
+        header_row = find_excel_header_row(uploaded_file)
+
+        uploaded_file.seek(0)
+
+        return pd.read_excel(
+            uploaded_file,
+            header=header_row,
+        )
 
     raise ValueError("Upload a CSV, JSON, or Excel file.")
 
